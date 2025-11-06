@@ -1,11 +1,21 @@
 #include "DFRobot_OzoneSensor.h"
 #include "Wire.h"
+#include "DHT.h"
+#define DHTPIN 8
+#define DHTTYPE DHT22   // or DHT11 if that’s your sensor
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#define ONE_WIRE_BUS 4
 
-// Create an instance for I2C mode
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
 DFRobot_OzoneSensor ozoneSensor;
+DHT DHT(DHTPIN, DHTTYPE);
+unsigned long startTime;
 
 void setup() {
   Serial.begin(9600);
+  startTime = millis();
   while (!Serial);
 
   // Initialize sensor in I2C mode
@@ -13,116 +23,65 @@ void setup() {
     Serial.println("Ozone sensor not detected!");
     while (1);
   }
-  
+
+  sensors.begin();
+  DHT.begin();
   ozoneSensor.setModes(MEASURE_MODE_PASSIVE);
   Serial.println("Ozone sensor initialized successfully!");
 }
 
 void loop() {
-  readOzone();
+  serialRead();
+  delay(2500);
 }
+
+void serialRead(){
+  Serial.println(getElapsedTime()); 
+  readOzone();
+  readDHTTemp();
+  readDS18B20Temp();
+  Serial.println("");
+  Serial.println("");
+}
+
+String getElapsedTime() {
+  unsigned long elapsed = millis() - startTime;
+  unsigned long seconds = (elapsed / 1000) % 60;
+  unsigned long minutes = (elapsed / (1000 * 60)) % 60;
+  unsigned long hours = (elapsed / (1000 * 60 * 60));
+  char buffer[10];
+  sprintf(buffer, "%02lu:%02lu:%02lu", hours, minutes, seconds);
+  return String(buffer);
+}
+
 
 void readOzone(){
   float ozoneConcentration = ozoneSensor.readOzoneData(20);  // Averaging 20 samples
 
   Serial.print("Ozone concentration: ");
   Serial.print(ozoneConcentration);
-  Serial.println(" ppm");
-
-  delay(1000);
+  Serial.println(" PPB");
 }
 
+void readDHTTemp(){
+  float h = DHT.readHumidity();
+  float t = DHT.readTemperature(true);          
 
+  // Printing the results on the serial monitor
+  Serial.print("External Temperature = ");
+  Serial.print(t);
+  Serial.print(" ");
+  Serial.print("C | ");
 
-//code with the SD card readings
-#include <DFRobot_OzoneSensor.h>
-#include <Wire.h>
-#include <SPI.h>
-#include <SD.h>
-
-#define CS_PIN 10  // SD card chip select pin
-
-DFRobot_OzoneSensor ozoneSensor;
-File dataFile;
-bool sdAvailable = false; // Tracks if SD card is working
-
-void setup() {
-  Serial.begin(9600);
-  while (!Serial);
-
-  initOzoneSensor();
-  initSD();
+  Serial.print("External Humidity = ");
+  Serial.print(h);
+  Serial.println(" % ");
 }
 
-void loop() {
-  readOzone();
-  delay(1000);
+void readDS18B20Temp(){
+  sensors.requestTemperatures(); 
+  
+  Serial.print("Internal Temperature: ");
+  Serial.print(sensors.getTempCByIndex(0));
+  Serial.print(" C"); 
 }
-
-
-// Initialize Ozone Sensor
-void initOzoneSensor() {
-  if (!ozoneSensor.begin(OZONE_ADDRESS_3)) {
-    Serial.println("Ozone sensor not detected!");
-    while (1);
-  }
-  ozoneSensor.setModes(MEASURE_MODE_PASSIVE);
-  Serial.println("Ozone sensor initialized successfully!");
-}
-
-// Initialize SD card
-void initSD() {
-  Serial.print("Initializing SD card...");
-  if (!SD.begin(CS_PIN)) {
-    Serial.println("SD card not detected! Logging to Serial only.");
-    sdAvailable = false;
-  } else {
-    Serial.println("SD card initialized.");
-    sdAvailable = true;
-
-    // Create CSV header if file is new
-    dataFile = SD.open("ozone_log.csv", FILE_WRITE);
-    if (dataFile) {
-      if (dataFile.size() == 0) {
-        dataFile.println("Time(ms),Ozone(ppm)");
-      }
-      dataFile.close();
-    } else {
-      Serial.println("Error creating ozone_log.csv");
-      sdAvailable = false;
-    }
-  }
-}
-
-// Read ozone data
-void readOzone() {
-  float ozoneConcentration = ozoneSensor.readOzoneData(20);  // Average 20 samples
-
-  Serial.print("Ozone concentration: ");
-  Serial.print(ozoneConcentration);
-  Serial.println(" ppm");
-
-  // Log to SD or Serial depending on availability
-  if (sdAvailable) {
-    logToSD(ozoneConcentration);
-  } else {
-    logToSerial(ozoneConcentration);
-  }
-}
-
-// Write a line to SD card
-void logToSD(float ozoneValue) {
-  dataFile = SD.open("ozone_log.csv", FILE_WRITE);
-  if (dataFile) {
-    dataFile.print(millis());
-    dataFile.print(",");
-    dataFile.println(ozoneValue);
-    dataFile.close();
-  } else {
-    Serial.println("Error writing to SD card!");
-  }
-}
-
-
-
-
