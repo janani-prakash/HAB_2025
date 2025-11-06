@@ -1,0 +1,74 @@
+#include "DFRobot_OzoneSensor.h"
+#include "Wire.h"
+#include "DHT.h"
+#define DHTPIN 8
+#define DHTTYPE DHT22   // or DHT11 if that’s your sensor
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#define ONE_WIRE_BUS 4
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+DFRobot_OzoneSensor ozoneSensor;
+DHT DHT(DHTPIN, DHTTYPE);
+
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+  // Initialize sensor in I2C mode
+  if (!ozoneSensor.begin(OZONE_ADDRESS_3)) {  // Default I2C address = 0x73
+    Serial.println("Ozone sensor not detected!");
+    while (1);
+  }
+
+  sensors.begin();
+  DHT.begin();
+  ozoneSensor.setModes(MEASURE_MODE_PASSIVE);
+  Serial.println("Ozone sensor initialized successfully!");
+}
+
+void loop() {
+  readOzone();
+  readDHTTemp();
+  readDS18B20Temp();
+  Serial.println("");
+  delay(2500);
+}
+
+void readOzone(){
+  float ozoneConcentration = ozoneSensor.readOzoneData(20);  // Averaging 20 samples
+
+  Serial.print("Ozone concentration: ");
+  Serial.print(ozoneConcentration);
+  Serial.println(" ppb");
+}
+
+void readDHTTemp(){
+  float h = DHT.readHumidity();
+  float t = DHT.readTemperature();          
+  float f = DHT.readTemperature(true); 
+
+  // Printing the results on the serial monitor
+  Serial.print("Temperature = ");
+  Serial.print(t);
+  Serial.print(" ");
+  Serial.print((char)176);
+  Serial.print("C | ");
+  Serial.print(f);
+  Serial.print(" ");
+  Serial.print((char)176);
+  Serial.println("F ");
+  Serial.print("Humidity = ");
+  Serial.print(h);
+  Serial.println(" % ");
+}
+
+void readDS18B20Temp(){
+  sensors.requestTemperatures(); 
+  
+  Serial.print("Celsius temperature: ");
+  Serial.print(sensors.getTempCByIndex(0)); 
+  Serial.print(" - Fahrenheit temperature: ");
+  Serial.println(sensors.getTempFByIndex(0));
+}
