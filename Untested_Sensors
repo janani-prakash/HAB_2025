@@ -11,9 +11,11 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DFRobot_OzoneSensor ozoneSensor;
 DHT DHT(DHTPIN, DHTTYPE);
+unsigned long startTime;
 
 void setup() {
   Serial.begin(9600);
+  startTime = millis();
   while (!Serial);
 
   // Initialize sensor in I2C mode
@@ -29,37 +31,49 @@ void setup() {
 }
 
 void loop() {
+  serialRead();
+  delay(2500);
+}
+
+void serialRead(){
+  Serial.println(getElapsedTime()); 
   readOzone();
   readDHTTemp();
   readDS18B20Temp();
   Serial.println("");
-  delay(2500);
+  Serial.println("");
 }
+
+String getElapsedTime() {
+  unsigned long elapsed = millis() - startTime;
+  unsigned long seconds = (elapsed / 1000) % 60;
+  unsigned long minutes = (elapsed / (1000 * 60)) % 60;
+  unsigned long hours = (elapsed / (1000 * 60 * 60));
+  char buffer[10];
+  sprintf(buffer, "%02lu:%02lu:%02lu", hours, minutes, seconds);
+  return String(buffer);
+}
+
 
 void readOzone(){
   float ozoneConcentration = ozoneSensor.readOzoneData(20);  // Averaging 20 samples
 
   Serial.print("Ozone concentration: ");
   Serial.print(ozoneConcentration);
-  Serial.println(" ppb");
+  Serial.println(" PPB");
 }
 
 void readDHTTemp(){
   float h = DHT.readHumidity();
-  float t = DHT.readTemperature();          
-  float f = DHT.readTemperature(true); 
+  float t = DHT.readTemperature(true);          
 
   // Printing the results on the serial monitor
-  Serial.print("Temperature = ");
+  Serial.print("External Temperature = ");
   Serial.print(t);
   Serial.print(" ");
-  Serial.print((char)176);
   Serial.print("C | ");
-  Serial.print(f);
-  Serial.print(" ");
-  Serial.print((char)176);
-  Serial.println("F ");
-  Serial.print("Humidity = ");
+
+  Serial.print("External Humidity = ");
   Serial.print(h);
   Serial.println(" % ");
 }
@@ -67,8 +81,7 @@ void readDHTTemp(){
 void readDS18B20Temp(){
   sensors.requestTemperatures(); 
   
-  Serial.print("Celsius temperature: ");
-  Serial.print(sensors.getTempCByIndex(0)); 
-  Serial.print(" - Fahrenheit temperature: ");
-  Serial.println(sensors.getTempFByIndex(0));
+  Serial.print("Internal Temperature: ");
+  Serial.print(sensors.getTempCByIndex(0));
+  Serial.print(" C"); 
 }
