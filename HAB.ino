@@ -25,21 +25,38 @@ void countPulse();
 
 void setup() {
   Serial.begin(9600);
+  delay(1000); // Give serial time to initialize
   startTime = millis();
   
-  while (!Serial); // wait for serial port to connect
+  Serial.println("\n\n=== SYSTEM STARTING ===");
   
   // Initialize SD card BEFORE other sensors
   Serial.println("Initializing SD card...");
+  Serial.print("CS Pin: ");
+  Serial.println(chipSelect);
+  
   if (!SD.begin(chipSelect)) {
-    Serial.println("SD card initialization failed!");
-    Serial.println("Check:");
-    Serial.println("- SD card is inserted");
-    Serial.println("- Wiring is correct");
-    Serial.println("- CS pin is correct (currently pin 10)");
+    Serial.println("❌ SD CARD INITIALIZATION FAILED!");
+    Serial.println("\nTroubleshooting:");
+    Serial.println("1. Check SD card is inserted properly");
+    Serial.println("2. Check wiring (MOSI=11, MISO=12, SCK=13, CS=10)");
+    Serial.println("3. SD card must be FAT32 format");
+    Serial.println("4. Try different CS pin or SD card");
     while (1); // Halt if SD fails
   }
-  Serial.println("SD card initialized successfully.");
+  Serial.println("✓ SD card initialized successfully!");
+  
+  // Test write immediately
+  Serial.println("Testing SD card write...");
+  File testFile = SD.open("test.txt", FILE_WRITE);
+  if (testFile) {
+    testFile.println("Arduino SD Test - System Started");
+    testFile.close();
+    Serial.println("✓ Test write successful!");
+  } else {
+    Serial.println("❌ Test write FAILED!");
+    while(1);
+  }
   
   // Initialize BMP280
   if (!bmp.begin(0x76)) {  // 0x76 or 0x77 depending on your module
@@ -111,8 +128,23 @@ void loop() {
   Serial.println(" µSv/h");
   
   //Write to SD card
+  Serial.println("\nWriting to SD card...");
   File dataFile = SD.open("data.txt", FILE_WRITE);
+  
+  if (!dataFile) {
+    Serial.println("❌ ERROR: Could not open data.txt!");
+    Serial.println("Checking if SD card is still responding...");
+    
+    // Try to recover
+    SD.begin(chipSelect);
+    dataFile = SD.open("data.txt", FILE_WRITE);
+  }
+  
   if (dataFile) {
+    Serial.print("File size before write: ");
+    Serial.print(dataFile.size());
+    Serial.println(" bytes");
+    
     dataFile.println("======================");
     dataFile.println(timestamp);
     dataFile.print("Temperature = ");
@@ -133,10 +165,17 @@ void loop() {
     dataFile.print("Radiation = ");
     dataFile.print(radiation);
     dataFile.println(" µSv/h");
+    
+    dataFile.flush(); // Force write to SD card
+    
+    Serial.print("File size after write: ");
+    Serial.print(dataFile.size());
+    Serial.println(" bytes");
+    
     dataFile.close();
-    Serial.println("✓ Data written to data.txt");
+    Serial.println("✓ Data successfully written to data.txt");
   } else {
-    Serial.println("✗ Error opening data.txt for writing.");
+    Serial.println("❌ CRITICAL ERROR: Cannot write to SD card!");
   }
   
   lastMillis = now;
