@@ -27,11 +27,17 @@ const unsigned long SCREEN_INTERVAL = 3000;  //oled
 #define OLED_DC   5
 #define OLED_CS   3
 
+#define MOSFET_PIN 9
 
 #define SEA_LEVEL_PRESSURE_HPA 1023.1
 const float RAD_CONVERSION = 0.0057; 
 
-
+//MOSFET logic
+bool mosfetState = true;
+bool altitudeReached = false;
+unsigned long previousMillis = 0;
+const unsigned long onTime = 10UL * 60UL * 1000UL;   
+const unsigned long offTime = 20UL * 60UL * 1000UL;
 
 Adafruit_BMP280 bmp;
 DFRobot_OzoneSensor Ozone;
@@ -117,14 +123,17 @@ void setup() {
 
   pinMode(GEIGER_PIN, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(GEIGER_PIN), countPulse, FALLING);
-  
+
+  pinMode(MOSFET_PIN, OUTPUT);
+  digitalWrite(MOSFET_PIN, HIGH);
 
   Serial.println(F("Timestamp,BMP_Temp_C,DS18B20_Temp_C,Pressure_Pa,Calculated_Alt_m,Ozone_PPB,CPM,uSv_h"));
 }
 
 void loop() {
   unsigned long currentMillis = millis();
-
+  float alt = bmp.readAltitude(SEA_LEVEL_PRESSURE_HPA);
+  alt *= 3.28084;
 
   if (currentMillis - lastLogTime >= LOG_INTERVAL) {
     lastLogTime = currentMillis;
@@ -166,6 +175,28 @@ void loop() {
     if (currentScreen > 4) currentScreen = 0; 
     updateOLED();
   }
+
+  if(alt >= 55000){
+    altitudeReached = true;
+    digitalWrite(MOSFET_PIN, HIGH);
+    return;
+  }
+  
+  if (!altitudeReached) {
+
+    if (mosfetState && currentMillis - previousMillis >= onTime) {
+      mosfetState = false;
+      previousMillis = currentMillis;
+      digitalWrite(mosfetPin, LOW);
+    }
+
+    else if (!mosfetState && currentMillis - previousMillis >= offTime) {
+      mosfetState = true;
+      previousMillis = currentMillis;
+      digitalWrite(mosfetPin, HIGH);
+    }
+  }
+  
 }
 
 
@@ -269,3 +300,4 @@ void updateOLED() {
     }
   }
 }
+
