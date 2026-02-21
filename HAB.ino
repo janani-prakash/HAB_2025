@@ -176,7 +176,7 @@ void loop() {
     updateOLED();
   }
 
-  if(alt >= 55000){
+  if(alt >= 65000){
     altitudeReached = true;
     digitalWrite(MOSFET_PIN, HIGH);
     return;
@@ -300,4 +300,5 @@ void updateOLED() {
     }
   }
 }
+
 
