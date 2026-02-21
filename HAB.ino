@@ -107,7 +107,7 @@ void setup() {
     if (dataFile) {
       if (!fileExists) {
 
-        dataFile.println(F("Timestamp,BMP_Temp_C,DS18B20_Temp_C,Pressure_Pa,Calculated_Alt_m,Ozone_PPB,CPM,uSv_h"));
+        dataFile.println(F("Timestamp,BMP_Temp_C,DS18B20_Temp_C,Pressure_Pa,Calculated_Alt_m,Ozone_PPB,CPM,uSv_h,mosfet_state"));
       } 
       dataFile.close();
       oled.println(F("SD CARD OK"));
@@ -127,7 +127,7 @@ void setup() {
   pinMode(MOSFET_PIN, OUTPUT);
   digitalWrite(MOSFET_PIN, HIGH);
 
-  Serial.println(F("Timestamp,BMP_Temp_C,DS18B20_Temp_C,Pressure_Pa,Calculated_Alt_m,Ozone_PPB,CPM,uSv_h"));
+  Serial.println(F("Timestamp,BMP_Temp_C,DS18B20_Temp_C,Pressure_Pa,Calculated_Alt_m,Ozone_PPB,CPM,uSv_h,mosfet_state"));
 }
 
 void loop() {
@@ -207,6 +207,11 @@ void performLogging() {
   float alt = bmp.readAltitude(SEA_LEVEL_PRESSURE_HPA);
   int16_t oz = Ozone.readOzoneData(20); 
   float uSv = rollingCPM * RAD_CONVERSION;
+  int16_t m_state = 0;
+
+  if(mosfetState){
+    m_state = 1;
+  }
 
   File dataFile = SD.open("datalog.csv", FILE_WRITE);
   if (dataFile) {
@@ -217,7 +222,8 @@ void performLogging() {
     dataFile.print(alt); dataFile.print(",");
     dataFile.print(oz); dataFile.print(",");
     dataFile.print(rollingCPM); dataFile.print(",");
-    dataFile.println(uSv); 
+    dataFile.print(uSv); dataFile.print(",");
+    dataFile.println(m_state); 
 
     dataFile.close();
   } else {
@@ -300,5 +306,6 @@ void updateOLED() {
     }
   }
 }
+
 
 
